@@ -10,6 +10,9 @@ GAMES = {
     "Summon a pet Army": 89695026030574,
     "Throw Food for animals": 120219252362013,
     "Stand Dice": 118619751815929,
+    "Fish for Secret Animals": 107192230357786,
+    "Shoot Arrows For Animals!": 128749725449995,
+    "Throw a Seed": 129081220403721,
 }
 
 MAKS_HARI = 7                    # tampilkan event yang mulai dalam N hari ke depan
