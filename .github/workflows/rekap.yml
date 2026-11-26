@@ -1,0 +1,30 @@
+name: rekap-event
+on:
+  schedule:
+    - cron: "0 * * * *"   # tiap 1 jam. Ganti "0 2 * * *" untuk 1x sehari jam 09:00 WIB
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rekap
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests deep-translator
+      - run: python mingguan.py
+        env:
+          WEBHOOK: ${{ secrets.WEBHOOK }}
+      - name: simpan state
+        run: |
+          git config user.name "reminder-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add state_rekap.json
+          git diff --staged --quiet || (git commit -m "update state" && git push)
