@@ -14,6 +14,7 @@ GAMES = {
     "Shoot Arrows For Animals!": 128749725449995,
     "Throw a Seed": 129081220403721,
     "+1 Spider Arm for Eggs": 124807263234597,
+    "Steal with Spider Arms": 120413462077800,
 }
 
 MAKS_HARI = 7                    # tampilkan event yang mulai dalam N hari ke depan
