@@ -15,6 +15,7 @@ GAMES = {
     "Throw a Seed": 129081220403721,
     "+1 Spider Arm for Eggs": 124807263234597,
     "Steal with Spider Arms": 120413462077800,
+    "Cast For Fish!": 131424283721618,
 }
 
 MAKS_HARI = 7                    # tampilkan event yang mulai dalam N hari ke depan
@@ -148,31 +149,51 @@ for nama, place_id in GAMES.items():
     embeds.append({"title": f"🎮 {nama}", "url": link, "description": teks,
                    "color": 0x5865F2 if akan else 0x4F545C})
 
+
 # ---------- kirim / edit pesan ----------
-payload = {
-    "content": f"📅 **Rekap event** (WIB / GMT+7) • diperbarui {fmt(now)}",
-    "embeds": embeds[:10],   # batas Discord: 10 embed per pesan
-}
+# Discord: maks 10 embed per pesan -> bagi embeds jadi beberapa pesan
+# (pesan 1 = 10 game pertama, pesan 2 = sisanya; state simpan message_id_2)
+def upsert_pesan(key, chunk, lanjutan):
+    payload = {
+        "content": f"📅 **Rekap event** (WIB / GMT+7) • diperbarui {fmt(now)}"
+                   + (" (lanjutan)" if lanjutan else ""),
+        "embeds": chunk,
+    }
+    mid = state.get(key)
+    if mid:  # edit pesan yang sudah ada
+        r = requests.patch(f"{WEBHOOK}/messages/{mid}", json=payload, timeout=15)
+        print(f"edit {key}:", r.status_code)
+        if r.status_code < 300:
+            return mid, True
+        if r.status_code == 404:   # pesan sudah dihapus, buat baru
+            mid = None
+        else:
+            print("Gagal edit:", r.text[:200])
+    if not mid:  # kirim pesan pertama (atau pengganti kalau pesan lama dihapus)
+        r = requests.post(WEBHOOK, params={"wait": "true"}, json=payload, timeout=15)
+        print(f"kirim baru {key}:", r.status_code, r.text[:200])
+        if r.status_code < 300:
+            return r.json()["id"], True
+    return mid, False
 
-mid = state.get("message_id")
-ok = False
 
-if mid:  # edit pesan yang sudah ada
-    r = requests.patch(f"{WEBHOOK}/messages/{mid}", json=payload, timeout=15)
-    print("edit:", r.status_code)
-    if r.status_code < 300:
-        ok = True
-    elif r.status_code == 404:   # pesan sudah dihapus, buat baru
-        mid = None
-    else:
-        print("Gagal edit:", r.text[:200])
+chunks = [embeds[i:i + 10] for i in range(0, len(embeds), 10)]
+ids_baru = {}
+ok_semua = True
+for i, chunk in enumerate(chunks):
+    key = "message_id" if i == 0 else f"message_id_{i + 1}"
+    mid_baru, ok = upsert_pesan(key, chunk, lanjutan=(i > 0))
+    if mid_baru:
+        ids_baru[key] = mid_baru
+    ok_semua = ok_semua and ok
 
-if not mid:  # kirim pesan pertama (atau pengganti kalau pesan lama dihapus)
-    r = requests.post(WEBHOOK, params={"wait": "true"}, json=payload, timeout=15)
-    print("kirim baru:", r.status_code, r.text[:200])
-    if r.status_code < 300:
-        mid = r.json()["id"]
-        ok = True
+# hapus pesan lanjutan kalau tidak lagi dibutuhkan (game berkurang ke <= 10)
+if len(chunks) == 1 and state.get("message_id_2"):
+    r = requests.delete(f"{WEBHOOK}/messages/{state['message_id_2']}", timeout=15)
+    print("hapus pesan lanjutan:", r.status_code)
 
-if ok:
-    json.dump({"message_id": mid, "seen": seen_baru}, open(STATE_FILE, "w"))
+if ok_semua:
+    state_baru = {"message_id": ids_baru.get("message_id"), "seen": seen_baru}
+    if ids_baru.get("message_id_2"):
+        state_baru["message_id_2"] = ids_baru["message_id_2"]
+    json.dump(state_baru, open(STATE_FILE, "w"))
